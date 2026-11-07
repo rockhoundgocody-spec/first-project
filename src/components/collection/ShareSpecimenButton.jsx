@@ -1,0 +1,70 @@
+import React, { useState } from 'react';
+import { Share2, Check } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
+
+/**
+ * Share a specimen via the native Web Share API on mobile, falling back to
+ * clipboard copy on desktop. Builds a friendly text payload — coordinates
+ * are intentionally omitted (privacy) and only the fuzzed `found_at` label
+ * is shared if present.
+ */
+export default function ShareSpecimenButton({ specimen, className = '' }) {
+  const [copied, setCopied] = useState(false);
+
+  const handleShare = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const rarityTag = specimen.rarity && specimen.rarity !== 'common'
+      ? ` (${specimen.rarity.toUpperCase()})`
+      : '';
+    const where = specimen.found_at ? ` near ${specimen.found_at}` : '';
+    const date = specimen.found_date ? ` on ${specimen.found_date}` : '';
+    const text = `Just found ${specimen.mineral_name}${rarityTag}${where}${date} 🪨 Logged with RockHound-GO — the AI mineral companion app! 💎`;
+    const shareData = {
+      title: `RockHound find: ${specimen.mineral_name}`,
+      text,
+      url: specimen.image_url || window.location.origin,
+    };
+
+    base44.analytics.track({ eventName: 'specimen_shared', properties: { mineral: specimen.mineral_name, rarity: specimen.rarity || 'common' } });
+
+    if (navigator.share && navigator.canShare?.(shareData)) {
+      try {
+        await navigator.share(shareData);
+        return;
+      } catch {
+        // user dismissed — fall through to copy
+      }
+    }
+    try {
+      await navigator.clipboard.writeText(`${text} ${shareData.url}`);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1800);
+    } catch {
+      // clipboard blocked — silent fail
+    }
+  };
+
+  const mineralName = specimen?.mineral_name;
+  const ariaLabel = copied
+    ? (mineralName ? `Copied link for ${mineralName}` : 'Copied specimen link')
+    : (mineralName ? `Share ${mineralName} specimen` : 'Share specimen');
+
+  const tooltipTitle = copied
+    ? 'Copied link to clipboard!'
+    : (mineralName ? `Share ${mineralName} details or copy link` : 'Share specimen details or copy link');
+
+  return (
+    <button
+      type="button"
+      onClick={handleShare}
+      aria-label={ariaLabel}
+      title={tooltipTitle}
+      className={`inline-flex items-center justify-center gap-1.5 min-h-[36px] min-w-[36px] px-2.5 rounded-lg border border-amethyst/30 bg-amethyst/10 hover:bg-amethyst/20 text-amethyst-glow text-[10px] uppercase tracking-wider transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amethyst-glow/50 ${className}`}
+    >
+      {copied ? <Check size={12} aria-hidden="true" /> : <Share2 size={12} aria-hidden="true" />}
+      <span>{copied ? 'Copied' : 'Share'}</span>
+    </button>
+  );
+}

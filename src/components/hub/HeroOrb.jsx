@@ -1,0 +1,242 @@
+/**
+ * HeroOrb — Clover on the Hub. Tap to talk: she speaks, listens, and stays
+ * in a hands-free loop. Visual state follows listening / thinking / speaking.
+ */
+import React, { useState, useRef, useEffect } from 'react';
+import { Check } from 'lucide-react';
+import LiquidCrystalOrb from '@/components/visuals/LiquidCrystalOrb';
+const AmethystOrb = React.lazy(() => import('@/components/visuals/AmethystOrb.jsx'));
+import WaterRipple from '@/components/visuals/WaterRipple.jsx';
+import useLiquidInteraction from '@/lib/useLiquidInteraction';
+import OrbAbilitiesModal from './OrbAbilitiesModal.jsx';
+import CloverVoicePanel from './CloverVoicePanel.jsx';
+import useCloverConversation from './useCloverConversation.js';
+import { triggerOrbHaptic, getLuckyMineralOfTheDay } from '@/lib/orbAudio';
+import { on } from '@/lib/cloverWake';
+
+const OPENERS = [
+  "Here, hound. What are we checking?",
+  "Clover's up. Find or site?",
+  "Talk. I'll pull the vault or open scan.",
+  "I'm listening. What did you find?",
+];
+
+export default function HeroOrb({ companion, recentFinds = [], size = 148 }) {
+  const [ripples, setRipples] = useState([]);
+  const [abilitiesModal, setAbilitiesModal] = useState(null);
+  const [customOrbState, setCustomOrbState] = useState(null);
+  const containerRef = useRef(null);
+  const { getInteraction, injectTap } = useLiquidInteraction();
+  const clover = useCloverConversation({ companion, recentFinds });
+
+  const [wakePulse, setWakePulse] = useState(false);
+  const [commandPulse, setCommandPulse] = useState(false);
+  const startRef = useRef(clover.start);
+  startRef.current = clover.start;
+  useEffect(() => on('wake', () => {
+    setWakePulse(true);
+    setTimeout(() => setWakePulse(false), 900);
+    triggerOrbHaptic('pulse');
+    startRef.current(OPENERS[Math.floor(Math.random() * OPENERS.length)]);
+  }), []);
+
+  // Confirmation flash the moment a spoken command lands and she acts on it.
+  useEffect(() => on('command', () => {
+    setCommandPulse(true);
+    setTimeout(() => setCommandPulse(false), 1400);
+  }), []);
+
+  const luckyMineral = getLuckyMineralOfTheDay();
+  const isResonanceClaimed = typeof window !== 'undefined' && localStorage.getItem(`rhgo_resonance_${luckyMineral.dateKey}`) === '1';
+
+  useEffect(() => {
+    if (!navigator.geolocation) return;
+    if (sessionStorage.getItem('rhgo_last_gps')) return;
+    navigator.geolocation.getCurrentPosition(
+      (pos) => sessionStorage.setItem('rhgo_last_gps', JSON.stringify({
+        lat: pos.coords.latitude, lng: pos.coords.longitude,
+      })),
+      () => {},
+      { timeout: 8000 }
+    );
+  }, []);
+
+  const addRipple = (e) => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    const x = rect ? e.clientX - rect.left : size / 2;
+    const y = rect ? e.clientY - rect.top : size / 2;
+    setRipples((r) => [...r, { id: Date.now() + Math.random(), x, y }]);
+  };
+
+  const handleOrbTap = (e) => {
+    addRipple(e);
+    if (e.clientX != null) injectTap(e.clientX, e.clientY);
+    clover.unlock?.();
+    triggerOrbHaptic('tap');
+
+    if (clover.phase === 'idle' || clover.phase === 'resting') {
+      clover.start(OPENERS[Math.floor(Math.random() * OPENERS.length)]);
+      return;
+    }
+    if (clover.phase === 'speaking' || clover.phase === 'thinking') {
+      clover.nudge();
+      return;
+    }
+    clover.nudge();
+  };
+
+  const orbState = customOrbState
+    || (clover.phase === 'resting' ? 'idle' : clover.phase === 'idle' ? 'idle' : clover.phase);
+
+  return (
+    <div className="relative w-full flex justify-center">
+      <div className="relative flex flex-col items-center">
+
+        <div
+          className="relative cursor-pointer select-none active:scale-[0.97] transition-transform"
+          ref={containerRef}
+          onClick={handleOrbTap}
+          role="button"
+          aria-label={clover.active ? 'Talk to Clover' : 'Wake Clover'}
+          tabIndex={0}
+          onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && handleOrbTap(e)}
+          style={{ width: size, height: size }}
+        >
+          {wakePulse && (
+            <span className="absolute inset-0 rounded-full pointer-events-none animate-ping"
+              style={{ border: '2px solid #9FE8D0', boxShadow: '0 0 30px #9FE8D080' }} />
+          )}
+          {orbState === 'listening' && (
+            <>
+              <span className="clover-listen-ring" style={{ animationDelay: '0s' }} />
+              <span className="clover-listen-ring" style={{ animationDelay: '0.7s' }} />
+            </>
+          )}
+          {orbState === 'speaking' && (
+            <>
+              <span
+                className="clover-listen-ring"
+                style={{
+                  animationDelay: '0s',
+                  borderColor: 'hsla(280, 95%, 76%, 0.75)',
+                  boxShadow: '0 0 32px hsla(280, 100%, 70%, 0.45)',
+                }}
+              />
+              <span
+                className="clover-listen-ring"
+                style={{
+                  animationDelay: '0.55s',
+                  borderColor: 'hsla(190, 100%, 70%, 0.65)',
+                  boxShadow: '0 0 28px hsla(190, 100%, 60%, 0.35)',
+                }}
+              />
+            </>
+          )}
+          <div className="absolute pointer-events-none" style={{ left: -size * .22, top: -size * .134 }}>
+          <LiquidCrystalOrb
+            mercury
+            size={size * 1.44}
+            getLive={() => {
+              const amp = Math.min(1, Math.max(0, Number(clover.getAmplitude?.()) || 0));
+              const base = { listening: .45, speaking: .5, thinking: .3, blessing: .8 }[orbState] || 0;
+              return {
+                energy: Math.min(1, base + amp * .6),
+                amber: orbState === 'thinking' || orbState === 'blessing' ? .85 : orbState === 'listening' ? .25 : .55,
+              };
+            }}
+          />
+          </div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <React.Suspense fallback={null}>
+              <AmethystOrb
+                size={size * .78}
+                orbState={orbState}
+                speaking={clover.phase === 'speaking'}
+                listening={clover.phase === 'listening'}
+                thinking={clover.phase === 'thinking'}
+                level={companion?.level || 1}
+                getInteraction={getInteraction}
+                getAmplitude={clover.getAmplitude}
+                getSpectrum={clover.getSpectrum}
+              />
+            </React.Suspense>
+            {/* Physical depth: recessed seat, core shadow, curved specular, bounce light */}
+            <div className="absolute rounded-full pointer-events-none" style={{
+              width: size * .8, height: size * .8,
+              boxShadow: '0 0 0 2px rgba(0,0,0,.55), inset 0 0 0 1px rgba(255,255,255,.18), 0 10px 22px rgba(0,0,0,.6), inset 0 -14px 26px rgba(0,0,0,.55)',
+              background: 'radial-gradient(circle at 34% 28%, rgba(255,255,255,.55) 0%, rgba(255,255,255,.12) 9%, transparent 22%), radial-gradient(circle at 60% 82%, rgba(255,190,90,.22) 0%, transparent 30%), radial-gradient(circle at 50% 50%, transparent 55%, rgba(0,0,0,.45) 100%)',
+            }} />
+          </div>
+          <div className="absolute left-1/2 -translate-x-1/2 rounded-full pointer-events-none" style={{
+            bottom: -size * .08, width: size * .7, height: size * .1,
+            background: 'radial-gradient(ellipse, rgba(0,0,0,.6) 0%, transparent 70%)', filter: 'blur(4px)',
+          }} />
+          {ripples.map((r) => (
+            <WaterRipple key={r.id} x={r.x} y={r.y} onDone={() => setRipples((rs) => rs.filter((rp) => rp.id !== r.id))} />
+          ))}
+          {commandPulse && (
+            <>
+              <span
+                className="absolute inset-0 rounded-full pointer-events-none animate-ping"
+                style={{ border: '2px solid #F2C14E', boxShadow: '0 0 26px #F2C14E66' }}
+              />
+              <span
+                className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center pointer-events-none"
+                style={{ background: '#9FE8D0', color: '#0a0a14', boxShadow: '0 0 14px #9FE8D088' }}
+                aria-hidden
+              >
+                <Check size={13} strokeWidth={3} />
+              </span>
+            </>
+          )}
+        </div>
+
+        <p className="mt-2 text-[11px] font-semibold tracking-wide text-white/70 text-center min-h-[18px]">
+          {clover.phase === 'listening' ? '🎤 Listening — take your time, I wait until you finish'
+            : clover.phase === 'speaking' ? '🔊 Clover is talking — just speak to jump in'
+            : clover.phase === 'thinking' ? '🧠 Thinking — keep talking if you have more to add'
+            : clover.phase === 'resting' ? '👆 Tap Clover to keep talking'
+            : '👆 Tap Clover to talk'}
+        </p>
+
+        {clover.phase !== 'idle' && (
+          <div className="mt-2.5 w-full flex justify-center px-2">
+            <CloverVoicePanel
+              phase={clover.phase}
+              messages={clover.messages}
+              interim={clover.interim}
+              muted={clover.muted}
+              onToggleMute={clover.toggleMute}
+              onStop={clover.end}
+              onClose={clover.end}
+              onHunt={() => {}}
+              huntLoading={false}
+              voiceSupported={clover.voiceSupported}
+              onSend={clover.send}
+              onSpeak={clover.say}
+              onListen={clover.nudge}
+              getWaveBars={clover.getWaveBars}
+              onOpenAbilities={() => {
+                triggerOrbHaptic('pulse');
+                setAbilitiesModal('resonance');
+              }}
+              resonanceClaimed={isResonanceClaimed}
+            />
+          </div>
+        )}
+      </div>
+
+      <OrbAbilitiesModal
+        open={!!abilitiesModal}
+        mode={abilitiesModal}
+        onClose={() => setAbilitiesModal(null)}
+        onAction={(action) => {
+          if (action === 'blessing') {
+            setCustomOrbState('blessing');
+            setTimeout(() => setCustomOrbState((s) => s === 'blessing' ? null : s), 4500);
+          }
+        }}
+      />
+    </div>
+  );
+}

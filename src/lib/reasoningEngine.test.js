@@ -1,0 +1,285 @@
+import { vi, describe, it, expect, beforeAll, afterEach } from 'vitest';
+
+const { invokeLLM } = vi.hoisted(() => ({ invokeLLM: vi.fn() }));
+
+vi.mock('@/api/base44Client', () => ({
+  base44: {
+    integrations: {
+      Core: {
+        InvokeLLM: invokeLLM,
+      },
+    },
+  },
+}));
+
+let scoreToBand;
+let reason;
+let shouldHalt;
+let recommendAction;
+let highLevelPlan;
+
+beforeAll(async () => {
+  globalThis.window = {
+    self: {},
+    top: {},
+    location: {
+      search: '',
+      href: 'http://localhost:3000',
+      pathname: '/',
+    },
+    localStorage: {
+      getItem: () => null,
+      setItem: () => {},
+      removeItem: () => {},
+    },
+  };
+  globalThis.window.self = globalThis.window;
+  globalThis.window.top = globalThis.window;
+
+  const mod = await import('./reasoningEngine.js');
+  scoreToBand = mod.scoreToBand;
+  reason = mod.reason;
+  shouldHalt = mod.shouldHalt;
+  recommendAction = mod.recommendAction;
+  highLevelPlan = mod.highLevelPlan;
+});
+
+afterEach(() => {
+  invokeLLM.mockReset();
+});
+
+describe('scoreToBand', () => {
+  it('returns "high" for scores greater than or equal to 0.75', () => {
+    expect(scoreToBand(0.75)).toBe('high');
+    expect(scoreToBand(0.8)).toBe('high');
+    expect(scoreToBand(1.0)).toBe('high');
+    expect(scoreToBand(1.5)).toBe('high');
+  });
+
+  it('returns "medium" for scores between 0.45 (inclusive) and 0.75 (exclusive)', () => {
+    expect(scoreToBand(0.45)).toBe('medium');
+    expect(scoreToBand(0.5)).toBe('medium');
+    expect(scoreToBand(0.749)).toBe('medium');
+    expect(scoreToBand(0.74999)).toBe('medium');
+  });
+
+  it('returns "low" for scores less than 0.45', () => {
+    expect(scoreToBand(0.449)).toBe('low');
+    expect(scoreToBand(0.2)).toBe('low');
+    expect(scoreToBand(0.0)).toBe('low');
+    expect(scoreToBand(-0.5)).toBe('low');
+  });
+});
+
+describe('highLevelPlan', () => {
+  it('returns actionable hints for an empty identification', () => {
+    expect(highLevelPlan({ task: 'identify' })).toEqual({
+      evidenceScore: 0,
+      evidenceList: [],
+      hints: [
+        'Add at least one clear photo',
+        'Share your location for geological context',
+        'Note color, luster, or crystal habit',
+      ],
+      needsMoreEvidence: true,
+      isOffline: false,
+    });
+  });
+
+  it('scores and caps photo evidence using its actual contribution', () => {
+    const single = highLevelPlan({ task: 'identify', imageUrls: ['one.jpg'] });
+    expect(single.evidenceScore).toBe(0.25);
+    expect(single.evidenceList[0]).toEqual({ type: 'image', label: '1 photo', weight: 0.25 });
+    expect(single.hints).toContain('Multiple angles improve accuracy');
+
+    const multiple = highLevelPlan({ task: 'identify', imageUrls: ['one.jpg', 'two.jpg', 'three.jpg'] });
+    expect(multiple.evidenceScore).toBe(0.5);
+    expect(multiple.evidenceList[0].weight).toBe(0.5);
+  });
+
+  it('combines valid locality and capped feature evidence', () => {
+    const result = highLevelPlan({
+      task: 'identify',
+      imageUrls: ['one.jpg', 'two.jpg'],
+      locality: { lat: 45.12345, lng: -85.67891 },
+      features: Array.from({ length: 10 }, () => ({ feature: 'color', value: 'green' })),
+    });
+
+    expect(result.evidenceScore).toBe(1);
+    expect(result.evidenceList).toEqual([
+      { type: 'image', label: '2 photos', weight: 0.5 },
+      { type: 'locality', label: 'Location: 45.123, -85.679', weight: 0.2 },
+      { type: 'feature', label: '10 observed features', weight: 0.3 },
+    ]);
+    expect(result.hints).toEqual([]);
+    expect(result.needsMoreEvidence).toBe(false);
+  });
+
+  it('requires a photo for identification but not other sufficiently supported tasks', () => {
+    const evidence = {
+      locality: { lat: 45, lng: -85 },
+      features: Array.from({ length: 10 }, () => ({ feature: 'habit', value: 'cubic' })),
+    };
+    expect(highLevelPlan({ task: 'identify', ...evidence }).needsMoreEvidence).toBe(true);
+    expect(highLevelPlan({ task: 'field_note', ...evidence }).needsMoreEvidence).toBe(false);
+  });
+
+  it('ignores malformed evidence instead of throwing before fallback', () => {
+    expect(highLevelPlan({
+      task: 'identify',
+      imageUrls: null,
+      features: 'not-an-array',
+      locality: { lat: '45', lng: Number.NaN },
+      isOffline: true,
+    })).toMatchObject({ evidenceScore: 0, evidenceList: [], needsMoreEvidence: true, isOffline: true });
+  });
+});
+
+describe('reason fallback behavior', () => {
+  it('halts before the remote model when the client is offline', async () => {
+    const result = await reason({
+      task: 'identify',
+      isOffline: true,
+      imageUrls: ['https://example.test/specimen.jpg'],
+    });
+
+    expect(result).toMatchObject({
+      primaryResult: 'Unknown specimen',
+      confidenceBand: 'low',
+      isOfflineFallback: true,
+    });
+    expect(result.reasoningSummary).toContain('offline');
+    expect(invokeLLM).not.toHaveBeenCalled();
+  });
+
+  it('halts on insufficient evidence without spending a model request', async () => {
+    const result = await reason({ task: 'identify', imageUrls: [] });
+
+    expect(result).toMatchObject({
+      primaryResult: 'Unknown specimen',
+      needsMoreEvidence: true,
+      isOfflineFallback: false,
+    });
+    expect(invokeLLM).not.toHaveBeenCalled();
+  });
+
+  it('returns a safe fallback when the model request fails', async () => {
+    invokeLLM.mockRejectedValueOnce(new Error('network unavailable'));
+
+    const result = await reason({
+      task: 'identify',
+      imageUrls: ['https://example.test/specimen.jpg'],
+    });
+
+    expect(result).toMatchObject({
+      primaryResult: 'Identification unavailable',
+      confidenceBand: 'low',
+      confidenceScore: 0,
+      isOfflineFallback: true,
+    });
+    expect(result.reasoningSummary).toContain('unavailable');
+  });
+
+  it('preserves a successful model result and confidence band', async () => {
+    invokeLLM.mockResolvedValueOnce({
+      primary_result: 'Quartz',
+      confidence: 0.9,
+      reasoning: 'Hexagonal crystal habit is visible.',
+      observed_features: [{ feature: 'habit', value: 'hexagonal' }],
+      uncertainty: [],
+    });
+
+    const result = await reason({
+      task: 'identify',
+      imageUrls: ['https://example.test/specimen.jpg'],
+      locality: { lat: 45, lng: -90 },
+    });
+
+    expect(result).toMatchObject({
+      primaryResult: 'Quartz',
+      confidenceBand: 'high',
+      isOfflineFallback: false,
+      reasoningSummary: 'Hexagonal crystal habit is visible.',
+    });
+    expect(result.evidenceUsed).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'feature', label: 'habit', value: 'hexagonal' }),
+    ]));
+  });
+});
+
+describe('shouldHalt', () => {
+  it('prioritizes insufficient evidence over offline state', () => {
+    expect(shouldHalt({ needsMoreEvidence: true, isOffline: true }))
+      .toEqual({ halt: true, reason: 'insufficient_evidence' });
+  });
+
+  it('halts offline work before confidence evaluation', () => {
+    expect(shouldHalt({ needsMoreEvidence: false, isOffline: true, evidenceScore: 1, modelConfidence: 1 }))
+      .toEqual({ halt: true, reason: 'offline' });
+  });
+
+  it('halts at the exact combined-confidence threshold', () => {
+    expect(shouldHalt({
+      evidenceScore: 0.4,
+      modelConfidence: 0.9,
+      needsMoreEvidence: false,
+      isOffline: false,
+    })).toEqual({ halt: true, reason: 'sufficient_confidence' });
+  });
+
+  it('continues immediately below the combined-confidence threshold', () => {
+    expect(shouldHalt({
+      evidenceScore: 0.4,
+      modelConfidence: 0.899,
+      needsMoreEvidence: false,
+      isOffline: false,
+    })).toEqual({ halt: false, reason: null });
+  });
+
+  it('treats missing, non-finite, and negative confidence as zero', () => {
+    for (const value of [undefined, Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+      expect(shouldHalt({
+        evidenceScore: value,
+        modelConfidence: value,
+        needsMoreEvidence: false,
+        isOffline: false,
+      })).toEqual({ halt: false, reason: null });
+    }
+  });
+
+  it('clamps oversized finite confidence values to calibrated unit scores', () => {
+    expect(shouldHalt({
+      evidenceScore: 5,
+      modelConfidence: 5,
+      needsMoreEvidence: false,
+      isOffline: false,
+    })).toEqual({ halt: true, reason: 'sufficient_confidence' });
+  });
+});
+
+describe('recommendAction', () => {
+  it('rescans when offline or missing evidence regardless of confidence', () => {
+    expect(recommendAction({ band: 'high', task: 'identify', isOffline: true })).toBe('rescan');
+    expect(recommendAction({ band: 'high', task: 'identify', needsMoreEvidence: true })).toBe('rescan');
+  });
+
+  it('maps low and medium confidence to rescan and compare', () => {
+    expect(recommendAction({ band: 'low', task: 'identify' })).toBe('rescan');
+    expect(recommendAction({ band: 'medium', task: 'identify' })).toBe('compare');
+  });
+
+  it('saves a high-confidence identification and lists a high-confidence valuation', () => {
+    expect(recommendAction({ band: 'high', task: 'identify' })).toBe('save');
+    expect(recommendAction({ band: 'high', task: 'value_estimate' })).toBe('list');
+  });
+
+  it('saves other supported high-confidence tasks', () => {
+    expect(recommendAction({ band: 'high', task: 'field_note' })).toBe('save');
+    expect(recommendAction({ band: 'high', task: 'locality_check' })).toBe('save');
+  });
+
+  it('fails safely to rescan when the confidence band is missing or invalid', () => {
+    expect(recommendAction({ task: 'identify' })).toBe('rescan');
+    expect(recommendAction({ band: 'unknown', task: 'identify' })).toBe('rescan');
+  });
+});

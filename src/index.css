@@ -1,0 +1,837 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 245 22% 8%;
+    --foreground: 0 0% 98%;
+    --amethyst: 275 80% 75%;
+    --amethyst-deep: 265 85% 58%;
+    --amethyst-glow: 280 100% 90%;
+    --hud-cyan: 188 100% 75%;
+    --hud-blue: 215 95% 75%;
+    --hud-grid: 210 35% 35%;
+    --glass-edge: 265 40% 80%;
+    --card: 245 20% 12%;
+    --card-foreground: 0 0% 98%;
+    --popover: 245 20% 12%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 275 75% 76%;
+    --primary-foreground: 245 30% 10%;
+    --secondary: 245 16% 20%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 245 15% 18%;
+    --muted-foreground: 240 10% 75%;
+    --accent: 245 18% 22%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 245 15% 20%;
+    --input: 245 15% 20%;
+    --ring: 275 80% 70%;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --radius: 0.75rem;
+    --sidebar-background: 245 20% 10%;
+    --sidebar-foreground: 0 0% 98%;
+    --sidebar-primary: 275 80% 75%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 245 18% 16%;
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 245 15% 20%;
+    --sidebar-ring: 275 80% 70%;
+    /* One liquid tempo — shared by the Hub backdrop and Clover's mercury skin
+       (mirrored in src/lib/liquidFlow.js). */
+    --rhgo-flow-duration: 16s;
+    --rhgo-flow-angle: 34deg;
+  }
+
+  .dark {
+    --background: 0 0% 3.9%;
+    --foreground: 0 0% 98%;
+    --card: 0 0% 3.9%;
+    --card-foreground: 0 0% 98%;
+    --popover: 0 0% 3.9%;
+    --popover-foreground: 0 0% 98%;
+    --primary: 0 0% 98%;
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 14.9%;
+    --secondary-foreground: 0 0% 98%;
+    --muted: 0 0% 14.9%;
+    --muted-foreground: 0 0% 63.9%;
+    --accent: 0 0% 14.9%;
+    --accent-foreground: 0 0% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 0 0% 14.9%;
+    --input: 0 0% 14.9%;
+    --ring: 0 0% 83.1%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+
+  html {
+    box-sizing: border-box;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  *, *::before, *::after {
+    box-sizing: inherit;
+  }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+    overscroll-behavior: none;
+    font-size: 16px;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif;
+    background:
+      radial-gradient(circle at 50% -10%, hsla(275, 80%, 36%, 0.30) 0%, transparent 60%),
+      radial-gradient(circle at 100% 35%, hsla(188, 90%, 30%, 0.12) 0%, transparent 50%),
+      radial-gradient(circle at 0% 75%, hsla(330, 80%, 30%, 0.10) 0%, transparent 45%),
+      linear-gradient(180deg, hsl(245 24% 9%) 0%, hsl(240 22% 7%) 45%, hsl(240 25% 5%) 100%);
+    background-attachment: fixed;
+  }
+
+  /* The app scrolls inside #root, not the body — body scroll can silently
+     freeze on mobile/PWA. This container model always scrolls. */
+  #root {
+    height: 100%;
+    width: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-y: contain;
+    position: relative;
+    isolation: isolate;
+    display: flex;
+    flex-direction: column;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+    /* Hide the visible scrollbar gutter on the right while staying scrollable */
+    scrollbar-width: none;
+  }
+
+  /* Universal Scrollbar Elimination:
+     Completely hides visible scrollbars (vertical, horizontal, nested, modals, sheets, drawers)
+     across WebKit (Chrome, Edge, Safari, iOS, Android), Gecko (Firefox), and legacy engines,
+     giving an ultra-clean native-app look while preserving 100% fluid touch, mousewheel,
+     trackpad, and keyboard scrolling on every single screen. */
+  html, body, #root, *, *::before, *::after {
+    scrollbar-width: none !important;
+    -ms-overflow-style: none !important;
+  }
+
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar,
+  #root::-webkit-scrollbar,
+  *::-webkit-scrollbar {
+    width: 0px !important;
+    height: 0px !important;
+    display: none !important;
+    background: transparent !important;
+  }
+}
+
+@layer base {
+  button, [role="button"], a, label, nav {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Never let canvases (WebGL orbs) or charts swallow vertical swipe gestures —
+     touch-dragging over them must still scroll the page */
+  canvas,
+  .recharts-wrapper,
+  .recharts-surface {
+    touch-action: pan-y pinch-zoom;
+  }
+}
+
+@layer utilities {
+  .glass-panel {
+    background: linear-gradient(145deg, hsla(245, 20%, 13%, 0.85) 0%, hsla(250, 22%, 9%, 0.92) 100%);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    border: 1px solid hsla(265, 45%, 65%, 0.22);
+    box-shadow:
+      inset 0 1px 0 hsla(265, 80%, 95%, 0.14),
+      inset 0 -1px 0 hsla(240, 30%, 0%, 0.35),
+      0 12px 36px -4px hsla(245, 50%, 3%, 0.7),
+      0 0 0 1px hsla(265, 40%, 75%, 0.08);
+  }
+  .hud-panel {
+    background: linear-gradient(180deg, hsla(215, 45%, 14%, 0.88) 0%, hsla(220, 40%, 9%, 0.94) 100%);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    border: 1px solid hsla(190, 90%, 65%, 0.35);
+    box-shadow:
+      inset 0 1px 0 hsla(190, 100%, 90%, 0.2),
+      0 0 24px hsla(190, 100%, 50%, 0.15),
+      0 8px 30px hsla(220, 60%, 5%, 0.5);
+  }
+  .hud-grid-bg {
+    background-image:
+      linear-gradient(hsla(195, 100%, 60%, 0.08) 1px, transparent 1px),
+      linear-gradient(90deg, hsla(195, 100%, 60%, 0.08) 1px, transparent 1px);
+    background-size: 32px 32px;
+  }
+  .text-amethyst { color: hsl(var(--amethyst-glow)); }
+  .text-hud { color: hsl(var(--hud-cyan)); }
+  .glow-amethyst { text-shadow: 0 0 20px hsla(280, 100%, 75%, 0.6), 0 0 40px hsla(265, 80%, 50%, 0.3); }
+  .glow-hud { text-shadow: 0 0 12px hsla(195, 100%, 60%, 0.7); }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none !important;
+    width: 0px !important;
+    height: 0px !important;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+  }
+
+  @keyframes amethyst-pulse {
+    0%, 100% { transform: scale(1); filter: brightness(1) blur(0px); }
+    50% { transform: scale(1.04); filter: brightness(1.15) blur(0.5px); }
+  }
+  @keyframes orb-speak {
+    0%, 100% { transform: scale(1); filter: brightness(1.1) saturate(1.1); }
+    25% { transform: scale(1.07); filter: brightness(1.3) saturate(1.3); }
+    50% { transform: scale(1.02); filter: brightness(1.15) saturate(1.2); }
+    75% { transform: scale(1.09); filter: brightness(1.35) saturate(1.4); }
+  }
+  @keyframes orb-ring {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50% { opacity: 0.95; transform: scale(1.06); }
+  }
+  @keyframes hud-scan {
+    0% { transform: translateY(-100%); opacity: 0; }
+    50% { opacity: 1; }
+    100% { transform: translateY(100%); opacity: 0; }
+  }
+  @keyframes liquid-shift {
+    0%, 100% { transform: translate(0, 0) rotate(0deg); }
+    33% { transform: translate(2%, -3%) rotate(1deg); }
+    66% { transform: translate(-2%, 2%) rotate(-1deg); }
+  }
+  .animate-amethyst-pulse { animation: amethyst-pulse 4s ease-in-out infinite; }
+  .animate-orb-speak { animation: orb-speak 0.9s ease-in-out infinite; }
+  .animate-orb-ring { animation: orb-ring 1.2s ease-in-out infinite; }
+  @keyframes poke-bubble {
+    0% { opacity: 0; transform: translate(-50%, 8px) scale(0.85); }
+    15% { opacity: 1; transform: translate(-50%, 0) scale(1.05); }
+    30% { transform: translate(-50%, 0) scale(1); }
+    85% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+    100% { opacity: 0; transform: translate(-50%, -6px) scale(0.95); }
+  }
+  .animate-poke-bubble { animation: poke-bubble 2.5s ease-out forwards; }
+  .animate-hud-scan { animation: hud-scan 3s linear infinite; }
+  .animate-liquid-shift { animation: liquid-shift 12s ease-in-out infinite; }
+
+  @keyframes clover-listen-ring {
+    0% { transform: scale(0.72); opacity: 0.55; }
+    100% { transform: scale(1.45); opacity: 0; }
+  }
+  .clover-listen-ring {
+    position: absolute;
+    inset: -8%;
+    border-radius: 9999px;
+    border: 1.5px solid hsla(160, 90%, 62%, 0.55);
+    box-shadow: 0 0 24px hsla(175, 100%, 55%, 0.25);
+    animation: clover-listen-ring 1.8s ease-out infinite;
+    pointer-events: none;
+  }
+
+  @keyframes hub-aurora-shift {
+    /* Travels the shared 34° liquid diagonal (--rhgo-flow-angle) */
+    0%, 100% { transform: translate3d(-6%, -4.05%, 0) scale(1.05); opacity: 0.55; }
+    50% { transform: translate3d(8%, 5.4%, 0) scale(1.12); opacity: 0.85; }
+  }
+  .hub-aurora {
+    position: absolute;
+    inset: -20% -10% 20%;
+    background:
+      radial-gradient(ellipse 50% 40% at 20% 10%, hsla(275, 90%, 55%, 0.28), transparent 60%),
+      radial-gradient(ellipse 45% 35% at 85% 18%, hsla(190, 100%, 50%, 0.18), transparent 62%),
+      radial-gradient(ellipse 40% 30% at 50% 0%, hsla(330, 90%, 50%, 0.12), transparent 70%);
+    filter: blur(28px);
+    animation: hub-aurora-shift var(--rhgo-flow-duration) ease-in-out infinite;
+  }
+  /* Flowing iridescent sheet — the room's liquid surface. Two counter-phase
+     layers of blurred light travel the same diagonal on the shared tempo, so
+     the backdrop never sits still and never repeats one composition. */
+  @keyframes hub-liquid-flow {
+    0%, 100% { transform: translate3d(-8%, -5.4%, 0) scale(1.06); opacity: 0.7; }
+    50%      { transform: translate3d(9%, 6.1%, 0) scale(1.14); opacity: 1; }
+  }
+  .hub-iridescent {
+    position: absolute;
+    inset: -25% -15% 10%;
+    background:
+      radial-gradient(ellipse 48% 40% at 28% 22%, hsla(190, 100%, 58%, 0.20), transparent 62%),
+      radial-gradient(ellipse 42% 36% at 76% 52%, hsla(330, 90%, 62%, 0.16), transparent 66%),
+      radial-gradient(ellipse 36% 30% at 46% 84%, hsla(45, 100%, 62%, 0.13), transparent 68%);
+    filter: blur(36px);
+    animation: hub-liquid-flow var(--rhgo-flow-duration) ease-in-out infinite;
+    will-change: transform, opacity;
+  }
+  .hub-iridescent-b {
+    inset: -12% -22% 4%;
+    animation-delay: calc(var(--rhgo-flow-duration) / -2);
+    background:
+      radial-gradient(ellipse 44% 34% at 62% 18%, hsla(275, 90%, 62%, 0.18), transparent 64%),
+      radial-gradient(ellipse 38% 32% at 18% 68%, hsla(168, 90%, 55%, 0.14), transparent 66%);
+  }
+  .hub-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(hsla(190, 80%, 60%, 0.04) 1px, transparent 1px),
+      linear-gradient(90deg, hsla(190, 80%, 60%, 0.04) 1px, transparent 1px);
+    background-size: 42px 42px;
+    mask-image: radial-gradient(ellipse 80% 55% at 50% 18%, black 10%, transparent 75%);
+  }
+  .hub-vignette {
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 30%, transparent 40%, hsl(240 20% 4% / 0.72) 100%);
+  }
+
+  /* Hide scrollbars on any element that opts in — keeps the Hub and other
+     clean surfaces free of the gutter while staying scrollable. */
+  .scrollbar-none {
+    scrollbar-width: none; /* Firefox */
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    display: none; /* Chrome / Safari / Edge */
+  }
+
+  @keyframes pp-breath {
+    0%, 100% { opacity: 0.5; transform: scale(1); }
+    50%      { opacity: 0.85; transform: scale(1.04); }
+  }
+  @keyframes focusPulse {
+    0%   { transform: translate(-50%, -50%) scale(1.4); opacity: 0; }
+    40%  { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  }
+
+  @keyframes rhgo-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+  }
+  .rhgo-shimmer {
+    background: linear-gradient(90deg, hsla(0,0%,100%,0.04) 0%, hsla(280,80%,80%,0.16) 45%, hsla(0,0%,100%,0.04) 100%);
+    background-size: 200% 100%;
+    animation: rhgo-shimmer 1.6s ease-in-out infinite;
+  }
+  .mint-cta {
+    background: #9FE8D0;
+    color: #0a0a14;
+    box-shadow: 0 0 36px -8px rgba(159,232,208,0.45);
+  }
+  .page-card {
+    background: linear-gradient(160deg, hsla(250, 28%, 12%, 0.88), hsla(240, 24%, 7%, 0.94));
+    border: 1px solid hsla(265, 40%, 55%, 0.18);
+    box-shadow: inset 0 1px 0 hsla(265, 80%, 95%, 0.08), 0 10px 28px -12px hsla(245, 50%, 4%, 0.7);
+    border-radius: 1.1rem;
+  }
+
+  .hub-aurora-secondary {
+    inset: 10% -15% 0;
+    opacity: 0.55;
+    animation-duration: var(--rhgo-flow-duration);
+    animation-direction: reverse;
+    background:
+      radial-gradient(ellipse 40% 30% at 70% 30%, hsla(160, 90%, 45%, 0.16), transparent 65%),
+      radial-gradient(ellipse 35% 25% at 15% 55%, hsla(300, 90%, 50%, 0.12), transparent 70%);
+  }
+  .hub-scanline {
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+      180deg,
+      transparent 0,
+      transparent 3px,
+      hsla(190, 100%, 70%, 0.015) 3px,
+      hsla(190, 100%, 70%, 0.015) 4px
+    );
+    mask-image: linear-gradient(180deg, black, transparent 70%);
+    pointer-events: none;
+  }
+  .hub-shimmer-overlay {
+    background: linear-gradient(110deg, transparent 20%, hsla(0,0%,100%,0.08) 45%, transparent 70%);
+    background-size: 200% 100%;
+    animation: rhgo-shimmer 2.4s ease-in-out infinite;
+  }
+  .desktop-phone-frame {
+    animation: desktop-frame-in 0.6s ease-out;
+  }
+  @keyframes desktop-frame-in {
+    from { opacity: 0; transform: translateY(12px) scale(0.985); }
+    to { opacity: 1; transform: none; }
+  }
+  .result-holo {
+    background:
+      linear-gradient(145deg, hsla(265, 50%, 18%, 0.55), hsla(240, 30%, 8%, 0.9)),
+      radial-gradient(circle at 20% 0%, hsla(280, 100%, 70%, 0.12), transparent 50%);
+    border: 1px solid hsla(280, 70%, 65%, 0.25);
+    box-shadow: inset 0 1px 0 hsla(280, 90%, 90%, 0.12), 0 0 40px -12px hsla(280, 90%, 50%, 0.35);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .hub-aurora,
+    .hub-aurora-secondary,
+    .hub-iridescent,
+    .clover-listen-ring,
+    .animate-orb-ring,
+    .animate-amethyst-pulse,
+    .animate-orb-speak,
+    .animate-hud-scan,
+    .animate-liquid-shift,
+    .rhgo-shimmer,
+    .hub-shimmer-overlay,
+    .desktop-phone-frame {
+      animation: none !important;
+    }
+  }
+}
+/* Keyboard "Skip to content" link: hidden until focused (WCAG 2.4.1). */
+.skip-link {
+  position: fixed;
+  left: 12px;
+  top: -64px;
+  z-index: 10000;
+  padding: 10px 16px;
+  border-radius: 12px;
+  background: #9FE8D0;
+  color: #0a0a14;
+  font-weight: 700;
+  font-size: 14px;
+  text-decoration: none;
+  transition: top 0.15s ease;
+}
+.skip-link:focus {
+  top: calc(env(safe-area-inset-top, 0px) + 12px);
+  outline: 2px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Desktop Command Deck — "Gemological Observational Terminal"
+   Wide-viewport shell: telemetry strip + 3-column workstation +
+   floating crystal capsule dock. Mobile keeps the unframed flow.
+   ═══════════════════════════════════════════════════════════════ */
+.rhgo-desktop-deck {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+  color: #e8e6f1;
+  background:
+    radial-gradient(ellipse at 50% 0%, rgba(112, 62, 174, .24), transparent 40%),
+    radial-gradient(ellipse at 95% 44%, rgba(29, 166, 186, .1), transparent 35%),
+    linear-gradient(145deg, #0b0d18, #080a12 58%, #0c0d17);
+  padding: 28px 40px 28px;
+  isolation: isolate;
+}
+.rhgo-desktop-deck::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: .35;
+  background-image:
+    linear-gradient(rgba(161, 128, 207, .07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(161, 128, 207, .07) 1px, transparent 1px);
+  background-size: 34px 34px;
+  mask-image: radial-gradient(ellipse at 50% 20%, #000, transparent 79%);
+  -webkit-mask-image: radial-gradient(ellipse at 50% 20%, #000, transparent 79%);
+}
+.rhgo-desktop-deck::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: radial-gradient(ellipse at 50% 70%, transparent 30%, rgba(0, 0, 0, .25));
+  pointer-events: none;
+}
+
+/* Telemetry strip */
+.rhgo-desktop-telemetry {
+  flex: none;
+  height: 68px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border: 1px solid rgba(142, 133, 179, .28);
+  border-radius: 16px;
+  padding: 0 22px;
+  background: linear-gradient(110deg, rgba(27, 27, 46, .98), rgba(12, 18, 29, .96));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .09), 0 16px 40px rgba(0, 0, 0, .32), 0 0 0 4px rgba(255, 255, 255, .012);
+  animation: rhgo-dd-rise .65s cubic-bezier(.2, .7, .2, 1) both;
+}
+.rhgo-desktop-telemetry .telemetry-left,
+.rhgo-desktop-telemetry .telemetry-right {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.rhgo-desktop-beacon {
+  height: 28px;
+  width: 28px;
+  border: 1px solid rgba(103, 232, 249, .5);
+  border-radius: 9px;
+  display: grid;
+  place-items: center;
+  color: #67e8f9;
+  background: linear-gradient(145deg, rgba(6, 182, 212, .18), rgba(6, 182, 212, .04));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .12), 0 0 18px rgba(6, 182, 212, .1);
+}
+.rhgo-desktop-status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #06b6d4;
+  box-shadow: 0 0 14px #06b6d4;
+  animation: rhgo-dd-beacon 2.4s ease-in-out infinite;
+}
+.rhgo-desktop-ticks {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+.rhgo-desktop-ticks i {
+  display: block;
+  width: 17px;
+  height: 4px;
+  border-radius: 5px;
+  background: #33384d;
+}
+.rhgo-desktop-ticks i:nth-child(-n+4) {
+  background: linear-gradient(90deg, #a56bdb, #64d7d1);
+  box-shadow: 0 0 9px rgba(147, 51, 234, .36);
+}
+.rhgo-desktop-signal {
+  width: 36px;
+  height: 20px;
+  border: 1px solid #414258;
+  border-radius: 99px;
+  position: relative;
+  background: rgba(255, 255, 255, .025);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .07);
+}
+.rhgo-desktop-signal::before {
+  content: "";
+  position: absolute;
+  left: 5px;
+  top: 5px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #b17ee7;
+  box-shadow: 0 0 12px #9333ea;
+}
+
+/* Workspace — 3-column grid */
+.rhgo-desktop-workspace {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: 112px minmax(0, 1fr) 112px;
+  gap: 18px;
+  margin-top: 26px;
+  overflow: hidden;
+}
+.rhgo-desktop-panel {
+  box-sizing: border-box;
+  min-height: 0;
+  border-radius: 20px;
+  border: 1px solid rgba(132, 126, 165, .27);
+  background: linear-gradient(155deg, rgba(25, 25, 42, .98), rgba(11, 14, 24, .98));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .075), inset 0 0 0 1px rgba(255, 255, 255, .015), 0 24px 56px rgba(0, 0, 0, .34), 0 0 32px rgba(102, 67, 153, .06);
+  padding: 18px;
+  position: relative;
+  overflow: hidden;
+  animation: rhgo-dd-rise .7s cubic-bezier(.2, .7, .2, 1) both;
+}
+.rhgo-desktop-panel::before {
+  content: "";
+  position: absolute;
+  inset: 9px;
+  border: 1px solid rgba(255, 255, 255, .025);
+  border-radius: 14px;
+  pointer-events: none;
+}
+.rhgo-desktop-panel::after {
+  content: "";
+  position: absolute;
+  left: 24px;
+  right: 24px;
+  top: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(192, 132, 252, .85), rgba(103, 232, 249, .72), transparent);
+  box-shadow: 0 0 12px rgba(147, 51, 234, .28);
+}
+.rhgo-desktop-panel.intel { animation-delay: .1s; }
+.rhgo-desktop-panel.center {
+  animation-delay: .2s;
+  padding: 20px;
+  background: linear-gradient(155deg, rgba(27, 27, 47, .99), rgba(10, 14, 24, .99));
+  border-color: rgba(157, 133, 192, .34);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .095), 0 25px 60px rgba(0, 0, 0, .38), 0 0 36px rgba(147, 51, 234, .075);
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.rhgo-desktop-panel.center::-webkit-scrollbar { display: none; width: 0; height: 0; }
+.rhgo-desktop-panel.log { animation-delay: .3s; }
+
+/* Override app content padding for the desktop center column */
+.rhgo-desktop-panel.center #main-content {
+  padding-bottom: 24px !important;
+}
+
+/* Intel panel — Clover orb + decorative cards */
+.rhgo-desktop-panel .orb-wrap {
+  height: 214px;
+  display: grid;
+  place-items: center;
+  position: relative;
+  margin: 4px 0 18px;
+}
+.rhgo-desktop-panel .orb {
+  width: 134px;
+  height: 134px;
+  border-radius: 50%;
+  position: relative;
+  background: radial-gradient(circle at 31% 26%, #ead3ff 0, #b581e1 10%, #7041aa 25%, #30214d 53%, #111723 77%);
+  box-shadow: 0 0 56px rgba(147, 51, 234, .36), 0 0 100px rgba(6, 182, 212, .08), inset -16px -20px 35px rgba(0, 0, 0, .72), inset 8px 8px 24px rgba(255, 255, 255, .2);
+  animation: rhgo-dd-breathe 4s ease-in-out infinite;
+}
+.rhgo-desktop-panel .orb::before,
+.rhgo-desktop-panel .orb::after {
+  content: "";
+  position: absolute;
+  inset: -19px;
+  border-radius: 50%;
+  border: 1px solid rgba(180, 130, 230, .52);
+  transform: rotateX(66deg) rotate(-22deg);
+  box-shadow: 0 0 18px rgba(147, 51, 234, .1);
+}
+.rhgo-desktop-panel .orb::after {
+  inset: -34px;
+  border-color: rgba(103, 232, 249, .32);
+  transform: rotateX(68deg) rotate(31deg);
+}
+.rhgo-desktop-panel .mini-card {
+  height: 132px;
+  border-radius: 16px;
+  border: 1px solid rgba(135, 128, 167, .24);
+  background: linear-gradient(145deg, #1c1d31, #101522 72%);
+  margin-top: 14px;
+  position: relative;
+  overflow: hidden;
+  box-shadow: inset 0 1px rgba(255, 255, 255, .065), 0 9px 22px rgba(0, 0, 0, .16);
+}
+.rhgo-desktop-panel .mini-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(ellipse at 74% 13%, rgba(103, 232, 249, .17), transparent 52%), radial-gradient(ellipse at 16% 105%, rgba(168, 85, 247, .15), transparent 55%), linear-gradient(130deg, transparent 35%, rgba(255, 255, 255, .035), transparent 74%);
+}
+.rhgo-desktop-panel .mini-card::after {
+  content: "";
+  position: absolute;
+  width: 42%;
+  height: 1px;
+  left: 14px;
+  bottom: 24px;
+  background: linear-gradient(90deg, #b26be2, #58d8d5, transparent);
+  box-shadow: 0 0 13px rgba(147, 51, 234, .62);
+}
+.rhgo-desktop-panel .micro-lines {
+  display: grid;
+  gap: 10px;
+  margin: 18px 3px;
+}
+.rhgo-desktop-panel .micro-lines i {
+  height: 5px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #34354d, #282a3b);
+  box-shadow: inset 0 1px rgba(255, 255, 255, .045);
+}
+.rhgo-desktop-panel .micro-lines i:nth-child(2) { width: 73%; }
+.rhgo-desktop-panel .micro-lines i:nth-child(3) { width: 88%; }
+.rhgo-desktop-panel .micro-lines i:nth-child(4) { width: 54%; }
+.rhgo-desktop-panel.log .mini-card { height: 176px; }
+.rhgo-desktop-panel.log .mini-card:nth-of-type(2) { height: 220px; }
+.rhgo-desktop-panel.log .mini-card:nth-of-type(3) { height: 174px; }
+.rhgo-desktop-panel.log .mini-card:nth-of-type(4) { height: 188px; }
+.rhgo-desktop-panel.log .micro-lines { margin: 17px 2px; }
+
+/* Dock */
+.rhgo-desktop-dock-wrap {
+  flex: none;
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  animation: rhgo-dd-rise .75s .35s cubic-bezier(.2, .7, .2, 1) both;
+}
+.rhgo-desktop-dock {
+  height: 96px;
+  width: 540px;
+  max-width: 100%;
+  box-sizing: border-box;
+  border: 1px solid rgba(179, 137, 224, .48);
+  border-radius: 26px;
+  padding: 10px 17px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  background: linear-gradient(180deg, rgba(34, 32, 52, .97), rgba(12, 15, 26, .99));
+  box-shadow: inset 0 1px rgba(255, 255, 255, .14), inset 0 -1px rgba(0, 0, 0, .3), 0 20px 54px rgba(0, 0, 0, .52), 0 0 40px rgba(147, 51, 234, .17);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+.rhgo-desktop-nav-item {
+  width: 72px;
+  height: 62px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  font-size: 10px;
+  letter-spacing: .14em;
+  font-weight: 700;
+  color: #a7a3b8;
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  transition: color .18s, background .18s, box-shadow .18s, transform .18s;
+}
+.rhgo-desktop-nav-item:hover {
+  color: #e9d5ff;
+  background: rgba(147, 51, 234, .11);
+}
+.rhgo-desktop-nav-item:active { transform: translateY(1px); }
+.rhgo-desktop-nav-item:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 3px;
+}
+.rhgo-desktop-nav-item.current {
+  color: #8beaf1;
+  background: linear-gradient(145deg, rgba(6, 182, 212, .14), rgba(6, 182, 212, .045));
+  box-shadow: inset 0 1px rgba(103, 232, 249, .13), 0 0 20px rgba(6, 182, 212, .06);
+}
+.rhgo-desktop-scan-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.rhgo-desktop-scan-button {
+  width: 72px;
+  height: 72px;
+  margin-top: -35px;
+  border-radius: 50%;
+  color: #f1d8ff;
+  border: 1px solid #d0a0fa;
+  background: radial-gradient(circle at 34% 23%, #57376f, #20182f 57%, #111421 100%);
+  box-shadow: 0 0 0 5px rgba(147, 51, 234, .13), 0 0 32px rgba(147, 51, 234, .55), inset 0 1px rgba(255, 255, 255, .28), inset 0 -7px 16px rgba(0, 0, 0, .3);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+  transition: color .18s, box-shadow .18s, transform .18s;
+}
+.rhgo-desktop-scan-button:hover {
+  color: #fff;
+  box-shadow: 0 0 0 5px rgba(147, 51, 234, .16), 0 0 34px rgba(147, 51, 234, .75), inset 0 1px rgba(255, 255, 255, .3);
+}
+.rhgo-desktop-scan-button:active { transform: scale(.97); }
+.rhgo-desktop-scan-button:focus-visible {
+  outline: 2px solid #67e8f9;
+  outline-offset: 3px;
+}
+.rhgo-desktop-scan-button.current {
+  color: #fff;
+  box-shadow: 0 0 0 5px rgba(147, 51, 234, .2), 0 0 40px rgba(147, 51, 234, .85), inset 0 1px rgba(255, 255, 255, .35);
+}
+.rhgo-desktop-scan-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: #e3cdf4;
+  text-align: center;
+  margin-top: -4px;
+}
+
+@keyframes rhgo-dd-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes rhgo-dd-breathe {
+  0%, 100% { filter: brightness(1); transform: scale(1); }
+  50% { filter: brightness(1.12); transform: scale(1.035); }
+}
+@keyframes rhgo-dd-beacon {
+  0%, 100% { opacity: .72; box-shadow: 0 0 8px #06b6d4; }
+  50% { opacity: 1; box-shadow: 0 0 17px #06b6d4; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rhgo-desktop-telemetry,
+  .rhgo-desktop-panel,
+  .rhgo-desktop-dock-wrap,
+  .rhgo-desktop-status-dot,
+  .rhgo-desktop-panel .orb {
+    animation: none !important;
+  }
+  .rhgo-desktop-nav-item,
+  .rhgo-desktop-scan-button {
+    transition: none !important;
+  }
+}
+
+/* Hide the mobile bottom nav on desktop — the desktop dock replaces it */
+@media (min-width: 900px) {
+  .rhgo-crystal-nav { display: none !important; }
+}

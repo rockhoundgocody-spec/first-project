@@ -1,0 +1,140 @@
+/**
+ * GTM + GA4 helpers for rhgo.me.
+ *
+ * Set in hosting / .env:
+ *   VITE_GTM_ID=GTM-XXXXXXX
+ *   VITE_GA4_MEASUREMENT_ID=G-XXXXXXXX
+ *   VITE_GSC_VERIFICATION=google-site-verification-token
+ *
+ * GTM is preferred for tags; GA4 can also receive direct events when set.
+ *
+ * Consent gate: GA/GTM scripts do not load until the user accepts the cookie
+ * banner (see cookieConsent.js + CookieConsentBanner.jsx). Until then, zero
+ * GA/GTM network calls happen — only the non-tracking Search Console meta.
+ */
+import { isConsentGranted } from '@/lib/cookieConsent';
+
+const GTM_ID = (import.meta.env.VITE_GTM_ID || '').trim();
+const GA4_ID = (import.meta.env.VITE_GA4_MEASUREMENT_ID || '').trim();
+const GSC_VERIFICATION = (import.meta.env.VITE_GSC_VERIFICATION || '').trim();
+
+let gtmReady = false;
+let gaReady = false;
+
+function ensureDataLayer() {
+  window.dataLayer = window.dataLayer || [];
+  return window.dataLayer;
+}
+
+/** Install Search Console HTML verification meta if configured. */
+export function installSearchConsoleVerification() {
+  if (!GSC_VERIFICATION || typeof document === 'undefined') return;
+  if (document.querySelector('meta[name="google-site-verification"]')) return;
+  const meta = document.createElement('meta');
+  meta.name = 'google-site-verification';
+  meta.content = GSC_VERIFICATION;
+  document.head.appendChild(meta);
+}
+
+/** Inject GTM bootstrap once. No-op without VITE_GTM_ID. */
+export function installGtm() {
+  if (gtmReady || !GTM_ID || typeof document === 'undefined') return;
+  if (!/^GTM-[A-Z0-9]+$/i.test(GTM_ID)) {
+    console.warn('[analytics] Ignoring invalid VITE_GTM_ID');
+    return;
+  }
+  ensureDataLayer().push({ 'gtm.start': Date.now(), event: 'gtm.js' });
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtm.js?id=${encodeURIComponent(GTM_ID)}`;
+  document.head.appendChild(script);
+
+  if (!document.getElementById('rhgo-gtm-noscript')) {
+    const noscript = document.createElement('noscript');
+    noscript.id = 'rhgo-gtm-noscript';
+
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://www.googletagmanager.com/ns.html?id=${encodeURIComponent(GTM_ID)}`;
+    iframe.height = '0';
+    iframe.width = '0';
+    iframe.style.display = 'none';
+    iframe.style.visibility = 'hidden';
+    iframe.title = 'gtm';
+
+    noscript.appendChild(iframe);
+    document.body.insertBefore(noscript, document.body.firstChild);
+  }
+  gtmReady = true;
+}
+
+/** Optional direct GA4 gtag when measurement ID is set (also usable via GTM). */
+export function installGa4() {
+  if (gaReady || !GA4_ID || typeof document === 'undefined') return;
+  if (!/^G-[A-Z0-9]+$/i.test(GA4_ID)) {
+    console.warn('[analytics] Ignoring invalid VITE_GA4_MEASUREMENT_ID');
+    return;
+  }
+  const script = document.createElement('script');
+  script.async = true;
+  script.src = `https://www.googletagmanager.com/gtag/js?id=${encodeURIComponent(GA4_ID)}`;
+  document.head.appendChild(script);
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function gtag() {
+    window.dataLayer.push(arguments);
+  };
+  window.gtag('js', new Date());
+  window.gtag('config', GA4_ID, { send_page_view: false });
+  gaReady = true;
+}
+
+/**
+ * Install non-tracking metadata only. Safe to call on every boot regardless
+ * of consent — Search Console verification is just a <meta> tag, no network.
+ */
+export function initAnalytics() {
+  installSearchConsoleVerification();
+}
+
+/**
+ * Install GA/GTM scripts ONLY when the user has granted consent.
+ * Idempotent — safe to call on boot (no-op if consent not yet granted or
+ * already installed) and again from the consent banner's accept handler.
+ * Until consent is granted, zero GA/GTM network calls happen.
+ */
+export function enableAnalytics() {
+  if (!isConsentGranted()) return;
+  installGtm();
+  installGa4();
+}
+
+/**
+ * SPA page view — call on every React Router location change.
+ * Never send emails, tokens, or exact GPS.
+ */
+export function trackPageView(path, title) {
+  const page_path = path || (typeof window !== 'undefined' ? window.location.pathname : '/');
+  const page_title = title || (typeof document !== 'undefined' ? document.title : '');
+  ensureDataLayer().push({
+    event: 'page_view',
+    page_path,
+    page_title,
+  });
+  if (typeof window.gtag === 'function' && GA4_ID) {
+    window.gtag('event', 'page_view', { page_path, page_title });
+  }
+}
+
+/** Generic event helper for product analytics. */
+export function trackEvent(eventName, params = {}) {
+  if (!eventName) return;
+  const safe = {};
+  for (const [k, v] of Object.entries(params || {})) {
+    if (v == null) continue;
+    if (typeof v === 'string' && /@|token|password|lat|lng|email/i.test(k)) continue;
+    safe[k] = v;
+  }
+  ensureDataLayer().push({ event: eventName, ...safe });
+  if (typeof window.gtag === 'function' && GA4_ID) {
+    window.gtag('event', eventName, safe);
+  }
+}

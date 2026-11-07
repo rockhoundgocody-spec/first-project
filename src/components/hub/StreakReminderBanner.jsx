@@ -1,0 +1,186 @@
+/**
+ * StreakReminderBanner — daily reminder to check in and keep the discovery streak alive.
+ * Shows once per day, after a short delay, dismissible per session.
+ */
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Flame, X, Zap } from 'lucide-react';
+import { Link, useLocation } from 'react-router-dom';
+import { base44 } from '@/api/base44Client';
+import { useBannerSlot } from '@/lib/bannerMutex';
+
+const SESSION_KEY = 'rhgo_streak_reminder_dismissed';
+const STORAGE_KEY = 'rhgo_streak_reminder_last_shown';
+
+function getTodayStr() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+const MESSAGES = [
+  { text: "Your streak is waiting — tap Clover for today's check-in!", cta: 'Check In', to: '/companion' },
+  { text: 'Found anything cool today? Log it to keep your streak alive.', cta: 'Log a Find', to: '/scan' },
+  { text: "Don't let your streak cool off — explore a hotspot nearby!", cta: 'Explore', to: '/explore' },
+  { text: 'A quick check-in keeps Clover happy and your streak burning 🔥', cta: 'Check In', to: '/companion' },
+];
+
+function pickMessage(streakDays) {
+  if (streakDays >= 7) {
+    return {
+      text: `${streakDays}-day streak on the line — one check-in saves the run.`,
+      cta: 'Save streak',
+      to: '/companion',
+      urgent: true,
+    };
+  }
+  if (streakDays >= 3) {
+    return {
+      text: `${streakDays} days strong. Don't drop it tonight.`,
+      cta: 'Check In',
+      to: '/companion',
+      urgent: true,
+    };
+  }
+  return MESSAGES[new Date().getDay() % MESSAGES.length];
+}
+
+export default function StreakReminderBanner() {
+  const [visible, setVisible] = useState(false);
+  const [msg, setMsg] = useState(null);
+  const { tryAcquire, release } = useBannerSlot('streak');
+  const location = useLocation();
+
+  // The banner is a bridge to /companion — once you're there, it should vanish.
+  useEffect(() => {
+    if (location.pathname === '/companion') {
+      setVisible(false);
+      release();
+    }
+  }, [location.pathname, release]);
+
+  useEffect(() => {
+    // Only show once per day, and not if already dismissed this session
+    if (sessionStorage.getItem(SESSION_KEY)) return;
+    const lastShown = localStorage.getItem(STORAGE_KEY);
+    if (lastShown === getTodayStr()) return;
+
+    // Already on the check-in page — no need to nag.
+    if (location.pathname === '/companion') return;
+
+    let cancelled = false;
+    let timer;
+
+    const schedule = (chosen) => {
+      if (!chosen) return;
+      setMsg(chosen);
+      timer = setTimeout(() => {
+        if (tryAcquire()) {
+          // Mark as shown the moment it appears — guarantees once per day
+          // even if the user never taps the X.
+          localStorage.setItem(STORAGE_KEY, getTodayStr());
+          setVisible(true);
+        }
+      }, 3500);
+    };
+
+    // If the user already checked in today, the streak is already safe —
+    // don't show the reminder at all.
+    base44.functions
+      .invoke('getCompanionState', {})
+      .then((res) => {
+        if (cancelled) return;
+        const companion = res?.data?.companion;
+        const checkedInToday = companion?.last_check_in_date === getTodayStr();
+        if (checkedInToday) return;
+        schedule(pickMessage(Number(companion?.streak_days) || 0));
+      })
+      .catch(() => {
+        if (cancelled) return;
+        schedule(pickMessage(0));
+      });
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [tryAcquire]);
+
+  // Auto-hide after 8 seconds — the banner shouldn't linger.
+  useEffect(() => {
+    if (!visible) return;
+    const hideTimer = setTimeout(() => {
+      setVisible(false);
+      release();
+      sessionStorage.setItem(SESSION_KEY, '1');
+    }, 8000);
+    return () => clearTimeout(hideTimer);
+  }, [visible, release]);
+
+  const dismiss = () => {
+    setVisible(false);
+    release();
+    sessionStorage.setItem(SESSION_KEY, '1');
+    localStorage.setItem(STORAGE_KEY, getTodayStr());
+    base44.analytics.track({ eventName: 'streak_reminder_dismissed' });
+  };
+
+  const handleCta = () => {
+    dismiss();
+    base44.analytics.track({ eventName: 'streak_reminder_cta_tapped', properties: { cta: msg?.cta } });
+  };
+
+  if (!msg) return null;
+
+  return (
+    <AnimatePresence>
+      {visible && (
+        <motion.div
+          initial={{ y: 80, opacity: 0 }}
+          animate={{ y: 0, opacity: 1 }}
+          exit={{ y: 80, opacity: 0 }}
+          transition={{ type: 'spring', damping: 22, stiffness: 280 }}
+          className="fixed bottom-24 inset-x-3 z-[9000] rounded-2xl flex items-center gap-3 px-4 py-3 shadow-xl"
+          style={{
+            background: 'linear-gradient(135deg, hsla(25,100%,28%,0.97) 0%, hsla(15,90%,22%,0.99) 100%)',
+            border: '1px solid hsla(30,100%,55%,0.45)',
+            boxShadow: '0 0 32px hsla(25,100%,50%,0.25)',
+            backdropFilter: 'blur(20px)',
+          }}
+        >
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+            style={{ background: 'hsla(30,100%,50%,0.2)', border: '1px solid hsla(30,100%,60%,0.35)' }}>
+            <Flame size={18} style={{ color: 'hsl(30,100%,65%)' }} aria-hidden="true" />
+          </div>
+
+          <p className="flex-1 text-white/85 text-[12px] leading-snug">{msg.text}</p>
+
+          <Link
+            to={msg.to}
+            onClick={handleCta}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-bold shrink-0 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80"
+            style={{
+              background: 'hsla(30,100%,55%,0.25)',
+              border: '1px solid hsla(30,100%,60%,0.5)',
+              color: 'hsl(30,100%,72%)',
+            }}
+          >
+            <Zap size={11} aria-hidden="true" />
+            {msg.cta}
+          </Link>
+
+          <button
+            type="button"
+            onClick={dismiss}
+            aria-label="Dismiss streak reminder"
+            className="shrink-0 text-white/30 hover:text-white/60 transition ml-1 p-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-400/80"
+          >
+            <X size={15} aria-hidden="true" />
+          </button>
+        </motion.div>
+      )}
+    </AnimatePresence>
+  );
+}

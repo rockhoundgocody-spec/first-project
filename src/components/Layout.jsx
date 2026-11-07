@@ -1,0 +1,247 @@
+import React, { useEffect } from 'react';
+import { Outlet, NavLink, Navigate, useLocation, useNavigate } from 'react-router-dom';
+import { Shield, FileCode2, ChevronLeft } from 'lucide-react';
+import { AnimatePresence, motion } from 'framer-motion';
+import { cn } from '@/lib/utils';
+import { OracleProvider } from '@/components/oracle/OracleContext.jsx';
+import { lazyPart } from '@/lib/lazyPart';
+import { useOracle } from '@/components/oracle/OracleContext.jsx';
+import HotspotProximityWatcher from '@/components/HotspotProximityWatcher.jsx';
+import StreakReminderBanner from '@/components/hub/StreakReminderBanner.jsx';
+import { useSeoRobots } from '@/lib/useSeoRobots';
+import ProfileDrawer from '@/components/ProfileDrawer.jsx';
+import CrystalNav from '@/components/nav/CrystalNav.jsx';
+import { BadgeAwarderProvider } from '@/lib/BadgeAwarderContext';
+import BadgeUnlockWatcher from '@/components/badges/BadgeUnlockWatcher';
+import FloatingCloverCompanion from '@/components/nav/FloatingCloverCompanion.jsx';
+import WakeWordListener from '@/components/oracle/WakeWordListener.jsx';
+import CloverNotifications from '@/components/oracle/CloverNotifications.jsx';
+import { useAuth } from '@/lib/AuthContext';
+import useReducedMotion from '@/lib/useReducedMotion';
+
+const OracleOverlay = lazyPart(() => import('@/components/oracle/OracleOverlay.jsx'));
+const OracleLiveOverlay = lazyPart(() => import('@/components/oracle/OracleLiveOverlay.jsx'));
+
+const PRIMARY_ROOTS = ['/', '/explore', '/scan', '/collection', '/market'];
+
+// All Layout routes are open to everyone (signed-in or guest) — no login wall.
+export function isPublicLayoutRoute(pathname) {
+  return Boolean(pathname);
+}
+
+const secondaryRoutes = [
+  { to: '/admin', label: 'Admin', icon: Shield },
+  { to: '/docs', label: 'Docs', icon: FileCode2 },
+];
+
+const tabStacks = {};
+
+const pageVariants = {
+  initial: { opacity: 0, x: 18 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -18 },
+};
+const pageTransition = { duration: 0.22, ease: [0.25, 0.46, 0.45, 0.94] };
+
+export function getActiveTab(pathname) {
+  if (pathname === '/') return '/';
+  for (const to of ['/explore', '/scan', '/collection', '/market']) {
+    if (pathname.startsWith(to)) return to;
+  }
+  return '/';
+}
+
+/**
+ * Renders admin and documentation navigation with the profile drawer.
+ * @param {Object} props - Header properties.
+ * @param {string} props.pathname - Current route path used for the section label.
+ * @param {boolean} props.isAdmin - Whether to show the admin navigation link.
+ * @returns {React.ReactElement} The navigation header.
+ */
+function AdminHeader({ pathname, isAdmin }) {
+  const links = isAdmin ? secondaryRoutes : secondaryRoutes.filter((r) => r.to !== '/admin');
+  return (
+    <header className="sticky top-0 z-40 hud-panel border-b border-hud-cyan/20 px-6 py-3 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-md hud-grid-bg border border-hud-cyan/40" />
+        <div>
+          <div className="text-sm font-semibold tracking-widest text-hud glow-hud select-none">ROCKHOUND-GO</div>
+          <div className="text-[10px] uppercase tracking-[0.3em] text-hud-cyan/60 select-none">
+            {pathname.replace('/', '') || 'system'}
+          </div>
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <nav className="flex gap-2">
+          {links.map(({ to, label, icon: Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                cn(
+                  'flex items-center gap-2 px-3 py-1.5 text-xs uppercase tracking-wider rounded-md border select-none',
+                  isActive
+                    ? 'border-hud-cyan/60 text-hud bg-hud-cyan/10 glow-hud'
+                    : 'border-hud-cyan/20 text-hud-cyan/60 hover:text-hud hover:border-hud-cyan/40'
+                )
+              }
+            >
+              <Icon size={14} /> {label}
+            </NavLink>
+          ))}
+        </nav>
+        <div className="w-px h-6 bg-white/10" />
+        <ProfileDrawer />
+      </div>
+    </header>
+  );
+}
+
+function SubrouteBackButton({ onBack }) {
+  return (
+    <div
+      className="sticky top-0 z-40 px-4 py-2 flex items-center"
+      style={{ background: 'hsla(240,20%,4%,0.85)', backdropFilter: 'blur(12px)' }}
+    >
+      <button
+        type="button"
+        onClick={onBack}
+        className="flex items-center gap-1 text-amethyst-glow hover:text-white transition select-none min-h-[44px] px-1 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amethyst-glow/50"
+        aria-label="Go back"
+      >
+        <ChevronLeft size={22} />
+        <span className="text-sm font-medium">Back</span>
+      </button>
+    </div>
+  );
+}
+
+function MainContent({ isAdminOrDocs, isFullscreenMap, pathname, reduceMotion }) {
+  return (
+    <main
+      id="main-content"
+      tabIndex={-1}
+      className={cn('relative outline-none', isAdminOrDocs ? 'pb-8' : '')}
+      style={
+        isAdminOrDocs || isFullscreenMap
+          ? undefined
+          : { paddingBottom: 'calc(116px + env(safe-area-inset-bottom, 0px))' }
+      }
+    >
+      {isFullscreenMap ? (
+        /* Leaflet maps break inside AnimatePresence exit transitions —
+           render the map route without the animation wrapper so
+           navigating away always works. */
+        <Outlet />
+      ) : (
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={pathname}
+            variants={reduceMotion ? undefined : pageVariants}
+            initial={reduceMotion ? false : 'initial'}
+            animate={reduceMotion ? undefined : 'animate'}
+            exit={reduceMotion ? undefined : 'exit'}
+            transition={pageTransition}
+          >
+            <Outlet />
+          </motion.div>
+        </AnimatePresence>
+      )}
+    </main>
+  );
+}
+
+/**
+ * Renders nested routes with shared navigation and authenticated user overlays.
+ * Sets route indexing rules and redirects signed-out visitors from protected
+ * routes to login, preserving the requested path and query string.
+ * @returns {React.ReactElement} The application shell or a login redirect.
+ */
+export default function Layout() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const { user, isAuthenticated, authChecked } = useAuth();
+  const reduceMotion = useReducedMotion();
+  // Most Layout routes are private. A few marketing/field pages stay indexable.
+  // /explore stays noindex until a real guest map ships (server noindex + sitemap omit).
+  const indexableUnderLayout = [
+    '/clubs', '/find-of-the-week', '/agate-guide', '/live', '/about', '/contact', '/scan', '/docs',
+  ].some((p) => location.pathname === p || location.pathname.startsWith(`${p}/`));
+  useSeoRobots(indexableUnderLayout);
+
+  // Reset the module-level tab back-stacks when the authenticated user
+  // changes so a new user never inherits the previous user's navigation history.
+  useEffect(() => {
+    for (const key of Object.keys(tabStacks)) delete tabStacks[key];
+  }, [user?.email]);
+
+  const isAdminOrDocs = ['/admin', '/docs', '/dev'].some((p) =>
+    location.pathname.startsWith(p)
+  );
+  const isRoot = PRIMARY_ROOTS.includes(location.pathname);
+  const isFullscreenMap = location.pathname.startsWith('/explore');
+  const isFullscreenCamera = location.pathname.startsWith('/scan');
+  const activeTab = getActiveTab(location.pathname);
+
+  useEffect(() => {
+    if (!tabStacks[activeTab]) tabStacks[activeTab] = [];
+    const stack = tabStacks[activeTab];
+    if (stack[stack.length - 1] !== location.pathname) stack.push(location.pathname);
+  }, [location.pathname, activeTab]);
+
+  const handleTabClick = (to, isActive) => {
+    if (isActive) {
+      tabStacks[to] = [to];
+      navigate(to, { replace: true });
+    } else {
+      // Always navigate to root of tab — avoids stale stack issues on sub-routes
+      navigate(to);
+    }
+  };
+
+  // Logged-out visitor on a protected route → straight to login (no spinner).
+  if (authChecked && !isAuthenticated && !isPublicLayoutRoute(location.pathname)) {
+    const from = `${location.pathname}${location.search}`;
+    const q = encodeURIComponent(from);
+    return <Navigate to={`/signin?from_url=${q}&next=${q}`} replace />;
+  }
+
+  return (
+    <OracleProvider>
+      <BadgeAwarderProvider>
+      <div className="w-full min-h-screen text-foreground flex flex-col overflow-x-hidden">
+        {isAdminOrDocs && <AdminHeader pathname={location.pathname} isAdmin={user?.role === 'admin'} />}
+        {!isAdminOrDocs && !isRoot && <SubrouteBackButton onBack={() => navigate(-1)} />}
+
+        <MainContent
+          isAdminOrDocs={isAdminOrDocs}
+          isFullscreenMap={isFullscreenMap}
+          pathname={location.pathname}
+          reduceMotion={reduceMotion}
+        />
+
+        {!isAdminOrDocs && !isFullscreenCamera && (
+          <CrystalNav activeTab={activeTab} onTabClick={handleTabClick} pathname={location.pathname} />
+        )}
+
+        {!isFullscreenCamera && <HotspotProximityWatcher />}
+        {!isFullscreenCamera && isAuthenticated && <StreakReminderBanner />}
+        {!isFullscreenCamera && <OracleOverlays />}
+        {isAuthenticated && <BadgeUnlockWatcher />}
+        {!isFullscreenCamera && <FloatingCloverCompanion />}
+        {!isFullscreenCamera && (
+          <>
+            <WakeWordListener />
+            <CloverNotifications />
+          </>
+        )}
+      </div>
+      </BadgeAwarderProvider>
+    </OracleProvider>
+  );
+}
+
+function OracleOverlays() {
+  const { autoLive } = useOracle();
+  return autoLive ? <OracleLiveOverlay /> : <OracleOverlay />;
+}
