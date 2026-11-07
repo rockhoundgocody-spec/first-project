@@ -1,0 +1,114 @@
+{
+  "name": "Badge",
+  "type": "object",
+  "properties": {
+    "code": {
+      "type": "string",
+      "description": "Stable identifier for the badge definition (e.g. 'crystal_whisperer')"
+    },
+    "title": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
+    },
+    "rarity": {
+      "type": "string",
+      "enum": [
+        "common",
+        "uncommon",
+        "rare",
+        "epic",
+        "legendary",
+        "mythic"
+      ],
+      "default": "common"
+    },
+    "material": {
+      "type": "string",
+      "enum": [
+        "liquid_glass",
+        "natural_stone",
+        "metallic_inlay",
+        "crystal_core",
+        "geo_topo"
+      ],
+      "default": "crystal_core"
+    },
+    "color_scheme": {
+      "type": "string",
+      "default": "amethyst"
+    },
+    "icon": {
+      "type": "string",
+      "description": "Lucide icon name to render in the badge core",
+      "default": "Gem"
+    },
+    "progress_current": {
+      "type": "number",
+      "default": 0
+    },
+    "progress_target": {
+      "type": "number",
+      "default": 1
+    },
+    "earned_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "When the user earned this badge"
+    },
+    "owner_email": {
+      "type": "string",
+      "description": "Email of the user who earned this badge"
+    }
+  },
+  "required": [
+    "code",
+    "title",
+    "rarity",
+    "owner_email"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.owner_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.owner_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

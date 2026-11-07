@@ -1,0 +1,112 @@
+{
+  "name": "PlayerProfile",
+  "type": "object",
+  "properties": {
+    "owner_email": {
+      "type": "string"
+    },
+    "total_xp": {
+      "type": "integer",
+      "default": 0
+    },
+    "level": {
+      "type": "integer",
+      "default": 1
+    },
+    "xp_categories": {
+      "type": "object",
+      "description": "Category XP \u2014 Collector, Steward, Scientist, Explorer, Mentor",
+      "properties": {
+        "collector": {
+          "type": "integer",
+          "default": 0
+        },
+        "steward": {
+          "type": "integer",
+          "default": 0
+        },
+        "scientist": {
+          "type": "integer",
+          "default": 0
+        },
+        "explorer": {
+          "type": "integer",
+          "default": 0
+        },
+        "mentor": {
+          "type": "integer",
+          "default": 0
+        }
+      }
+    },
+    "badges": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "default": []
+    },
+    "avatar_url": {
+      "type": "string"
+    },
+    "streak_days": {
+      "type": "integer",
+      "default": 0
+    },
+    "last_login": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional free-form description of this player profile (up to 1000 characters)"
+    }
+  },
+  "required": [
+    "owner_email"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.owner_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.owner_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

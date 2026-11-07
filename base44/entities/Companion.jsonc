@@ -1,0 +1,113 @@
+{
+  "name": "Companion",
+  "type": "object",
+  "properties": {
+    "owner_email": {
+      "type": "string",
+      "description": "Email of the rockhound this companion belongs to"
+    },
+    "name": {
+      "type": "string",
+      "default": "Clover \ud83c\udf40 Cole",
+      "description": "Companion's chosen name"
+    },
+    "level": {
+      "type": "integer",
+      "default": 1,
+      "description": "Companion level \u2014 grows from finds + check-ins"
+    },
+    "xp": {
+      "type": "integer",
+      "default": 0,
+      "description": "Experience points toward next level"
+    },
+    "energy": {
+      "type": "integer",
+      "default": 80,
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Today's energy 0-100. Refilled by check-ins, drained by inactivity."
+    },
+    "mood": {
+      "type": "string",
+      "enum": [
+        "radiant",
+        "happy",
+        "calm",
+        "drowsy",
+        "tender"
+      ],
+      "default": "calm",
+      "description": "Current vibe \u2014 drives Clover \ud83c\udf40 Cole's mood, visual tone, and voice style"
+    },
+    "last_check_in_date": {
+      "type": "string",
+      "format": "date",
+      "description": "YYYY-MM-DD of last daily check-in"
+    },
+    "last_intention": {
+      "type": "string",
+      "description": "What the rockhound said they wanted today"
+    },
+    "last_mood_label": {
+      "type": "string",
+      "description": "How the user said they felt at last check-in"
+    },
+    "streak_days": {
+      "type": "integer",
+      "default": 0,
+      "description": "Consecutive days with a check-in or a new find"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000,
+      "description": "Optional free-form description of this companion (up to 1000 characters)"
+    }
+  },
+  "required": [
+    "owner_email"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "data.owner_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "data.owner_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "user_condition": {
+        "role": "admin"
+      }
+    }
+  }
+}

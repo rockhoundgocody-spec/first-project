@@ -1,0 +1,97 @@
+{
+  "name": "StreamIdentification",
+  "type": "object",
+  "description": "An AI mineral identification captured live during a stream, visible to everyone watching. Doubles as the host's draft list \u2014 confirmed finds enter the weekly Find of the Week ballot, promoted finds become private GPS pins.",
+  "properties": {
+    "stream_id": {
+      "type": "string"
+    },
+    "owner_email": {
+      "type": "string"
+    },
+    "mineral_name": {
+      "type": "string"
+    },
+    "confidence": {
+      "type": "number"
+    },
+    "rarity": {
+      "type": "string",
+      "enum": [
+        "common",
+        "uncommon",
+        "rare",
+        "legendary"
+      ],
+      "default": "common"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 1000
+    },
+    "confirmed": {
+      "type": "boolean",
+      "default": false,
+      "description": "Host-confirmed eligible for the Find of the Week ballot. Set server-side by confirmStreamId after anti-gaming validation."
+    },
+    "confirmed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "promoted": {
+      "type": "boolean",
+      "default": false,
+      "description": "Host promoted this draft to their private collection map as a GPS-pinned PrivateRockLog entry."
+    },
+    "private_log_id": {
+      "type": "string",
+      "description": "PrivateRockLog id created when this draft was promoted, so it can't be re-pinned."
+    }
+  },
+  "required": [
+    "stream_id",
+    "mineral_name"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {},
+    "update": {
+      "$or": [
+        {
+          "data.owner_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "data.owner_email": "{{user.email}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}

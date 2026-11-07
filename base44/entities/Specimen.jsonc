@@ -1,0 +1,222 @@
+{
+  "name": "Specimen",
+  "type": "object",
+  "properties": {
+    "mineral_name": {
+      "type": "string"
+    },
+    "common_name": {
+      "type": "string"
+    },
+    "image_url": {
+      "type": "string"
+    },
+    "found_at": {
+      "type": "string"
+    },
+    "lat": {
+      "type": "number"
+    },
+    "lng": {
+      "type": "number"
+    },
+    "found_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "ai_confidence": {
+      "type": "number"
+    },
+    "ai_candidates": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "rarity": {
+      "type": "string",
+      "enum": [
+        "common",
+        "uncommon",
+        "rare",
+        "legendary"
+      ],
+      "default": "common"
+    },
+    "verified": {
+      "type": "boolean",
+      "default": false
+    },
+    "disposition": {
+      "type": "string",
+      "enum": [
+        "collected",
+        "left_in_place",
+        "observed"
+      ],
+      "description": "Chattel (collected) vs affixed/legacy (marked in place) vs observed (noted only)"
+    },
+    "collected": {
+      "type": "boolean",
+      "default": false
+    },
+    "left_in_place": {
+      "type": "boolean",
+      "default": false
+    },
+    "legal_status": {
+      "type": "string",
+      "description": "e.g. 'user_confirmed' \u2014 legal access status at time of find"
+    },
+    "ethics_prompt_shown": {
+      "type": "boolean",
+      "default": false
+    },
+    "user_confirmed_legal_access": {
+      "type": "boolean",
+      "default": false
+    },
+    "geo_privacy": {
+      "type": "string",
+      "enum": [
+        "exact",
+        "approximate",
+        "private"
+      ],
+      "default": "private",
+      "description": "How precisely this find's location is stored/shared"
+    },
+    "rarity_quality_score": {
+      "type": "number",
+      "description": "RQS \u2014 rarity x quality composite score"
+    },
+    "xp_awarded": {
+      "type": "integer",
+      "default": 0
+    },
+    "provenance": {
+      "type": "string",
+      "enum": [
+        "nature",
+        "store_bought"
+      ],
+      "default": "nature",
+      "description": "Where the specimen came from \u2014 nature (field, gravel, driveway, landscaping) vs store-bought/gift. Store-bought earns reduced XP."
+    },
+    "chain_ids": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Discovery chain ids this find contributes to"
+    },
+    "weather": {
+      "type": "object",
+      "description": "Weather snapshot at time/place of finding",
+      "properties": {
+        "temperature_f": {
+          "type": "number"
+        },
+        "condition": {
+          "type": "string"
+        },
+        "humidity": {
+          "type": "number"
+        },
+        "wind_mph": {
+          "type": "number"
+        },
+        "fetched_at": {
+          "type": "string"
+        }
+      }
+    },
+    "lunar_phase": {
+      "type": "object",
+      "description": "Lunar phase at time of finding",
+      "properties": {
+        "phase_name": {
+          "type": "string"
+        },
+        "illumination": {
+          "type": "number"
+        },
+        "phase_value": {
+          "type": "number"
+        }
+      }
+    },
+    "field_habit": {
+      "type": "string",
+      "description": "User-editable field report: crystal habit / form observed"
+    },
+    "field_luster": {
+      "type": "string",
+      "description": "User-editable field report: luster type observed"
+    },
+    "field_matrix": {
+      "type": "string",
+      "description": "User-editable field report: matrix / host rock observed"
+    },
+    "field_next_test": {
+      "type": "string",
+      "description": "User-editable field report: next test to try (e.g. streak, hardness, magnetism)"
+    }
+  },
+  "required": [
+    "mineral_name"
+  ],
+  "rls": {
+    "create": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "read": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "update": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    },
+    "delete": {
+      "$or": [
+        {
+          "created_by_id": "{{user.id}}"
+        },
+        {
+          "user_condition": {
+            "role": "admin"
+          }
+        }
+      ]
+    }
+  }
+}
